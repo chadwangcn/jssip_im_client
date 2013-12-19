@@ -647,6 +647,7 @@ window.GUI = {
 
          MyPhone.sendDTMF(cmd, info);
          MyPhone.stovideo(this, info);
+		 $("#webcam"+info).remove();
          return ;
 		}
 
