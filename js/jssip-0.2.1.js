@@ -3344,11 +3344,13 @@ JsSIP.Session.prototype.applyVideoChannel = function(target,userid,options,onSuc
 
 JsSIP.Session.prototype.StopVideoChannel = function(target,userid) {
 
-	
+
+	delete this.mediaSessionExt[userid].peerConnection;
 	this.mediaSessionExt[userid].close();
-	this.mediaSessionExt[userid].session = null;
 	this.mediaSessionExt[userid].peerConnection = null;
+	this.mediaSessionExt[userid].session = null;
 	this.mediaSessionExt[userid] = null;
+	
 }
 
 
