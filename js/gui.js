@@ -205,6 +205,9 @@ window.GUI = {
             }
 
             if (eventType == "conference/leave") {
+
+				// release video stream when user left the conf
+				GUI.jssipStopVideo(userId);
                 $("#" + itemId).remove();
             }
             if (eventType == "conference/join" || itemBodyList.length > 1) {
@@ -638,6 +641,17 @@ window.GUI = {
 
     startconfvideo: function (user_id, r_sdp) {
         MyPhone.startvideo(user_id, r_sdp);
+    },
+
+    jssipStopVideo: function (user_id){
+
+        try
+        {
+        	MyPhone.stovideo(this, user_id);
+			$("#webcam"+user_id).remove();
+        }
+        catch(e){};
+		
     },
 
     jssipCtrlInfo: function (cmd, info) {

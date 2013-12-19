@@ -3346,6 +3346,8 @@ JsSIP.Session.prototype.StopVideoChannel = function(target,userid) {
 
 	
 	this.mediaSessionExt[userid].close();
+	this.mediaSessionExt[userid].session = null;
+	this.mediaSessionExt[userid].peerConnection = null;
 	this.mediaSessionExt[userid] = null;
 }
 
