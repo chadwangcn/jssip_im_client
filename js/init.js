@@ -1,4 +1,4 @@
-var userLocalIP = "192.168.1.106";
+var userLocalIP = "192.168.1.103";
 
 $(document).ready(function () {
 
@@ -32,6 +32,7 @@ $(document).ready(function () {
 
     sip_uri = default_sip_uri;
     sip_password = default_sip_password;
+    stun_server = 'stun:' + userLocalIP + ':3478',
 
     login_button = $("#login_button");
     login_inputs = $("#login-box input");
@@ -288,7 +289,7 @@ $(document).ready(function () {
             'password': sip_password,
             'register_expires': 600,
             'secure_transport': false,
-            //      'stun_server': 'aliax.net',
+            'stun_server': stun_server,
             'trace_sip': true,
             'hack_ip_in_contact': false,
             'hack_via_tcp': false
@@ -315,7 +316,12 @@ $(document).ready(function () {
             GUI.new_message(e)
         }
     );
-        MyPhone.on('userEvent', function (e) {
+        MyPhone.on('ConfEvent', function (e) {
+            GUI.new_conferenceEvent(e)
+        }
+	);
+
+		MyPhone.on('userEvent', function (e) {
             GUI.new_userEvent(e)
         }
     );

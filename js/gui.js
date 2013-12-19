@@ -1,7 +1,5 @@
 window.GUI = {
 
-
-
     phoneCallButtonPressed: function () {
         var target = phone_dialed_number_screen.val();
 
@@ -10,7 +8,6 @@ window.GUI = {
             GUI.jssipCall(target);
         }
     },
-
 
     phoneChatButtonPressed: function () {
         var user, session,
@@ -37,7 +34,6 @@ window.GUI = {
             $(session).find(".chat input").focus();
         }
     },
-
 
     /*
     * JsSIP.UA new_session event listener
@@ -127,10 +123,16 @@ window.GUI = {
                 var msgFrom = request.body.substr(0, separatorIndex);
                 var separatorIndex1 = request.body.indexOf(" \n", separatorIndex + 1);
                 if (separatorIndex1 != -1) {
-                    var msgSender = request.body.substr(separatorIndex + 2, separatorIndex1 - separatorIndex - 1);
-                    var msgText = request.body.substr(separatorIndex1 + 1);
+                    var msgSender = request.body.substr(separatorIndex + 2, separatorIndex1 - separatorIndex - 2);
+                    var msgText = request.body.substr(separatorIndex1 + 2);
                     display_name = msgSender;
+                    if (display_name.indexOf("Name:") == 0) {
+                        display_name = display_name.substr(5);
+                    }
                     text = msgText;
+                    if (text.indexOf("Msg:") == 0) {
+                        text = text.substr(4);
+                    }
                 }
             }
             //end
@@ -141,7 +143,7 @@ window.GUI = {
                 GUI.setCallSessionStatus(session, "inactive");
             }
 
-            GUI.addChatMessage(session, "peer", text);
+            GUI.addChatMessage(session, display_name, text);
             $(session).find(".chat input").focus();
         } else {
             display_name = request.ruri;
@@ -152,32 +154,45 @@ window.GUI = {
         }
     },
 
+    new_conferenceEvent: function (e) {
+
+        var user_id = e.data.headers["Requestack"][0]["raw"];
+        var r_sdp = e.data.body;
+
+
+        GUI.startconfvideo(user_id, r_sdp);
+
+        console.info(user_id);
+        console.info(r_sdp);
+
+
+    },
+
     new_userEvent: function (e) {
         //alert(e);"1001|1001@192.168.60.3"
-		var eventType = e.data.headers["Content-Type"][0]["raw"];
-		
+        var eventType = e.data.headers["Content-Type"][0]["raw"];
+
         var itemBodyList = e.data.body.split("\n");
         var itemId = "";
         var itemName = "";
         var userId = "";
         var userIp = "";
-		
-		if( eventType == "conference/applyvideo" )
-		{
-		
-			return ;
-		}
-		else if( eventType == "conference/stopvideo" )
-		{
-			return;
-		}
-		
+
+        if (eventType == "conference/applyvideo") {
+            alert("gui.js=new_userEvent=conference/applyvideo");
+            return;
+        }
+        else if (eventType == "conference/stopvideo") {
+            alert("gui.js=new_userEvent=conference/stopvideo");
+            return;
+        }
+
         for (var i = 0; i < itemBodyList.length; i++) {
             var itemBody = itemBodyList[i].split("@");
             if (itemBody.length > 1) {
                 userIp = itemBody[1];
                 itemBody = itemBody[0].split("|");
-                
+
                 if (itemBody.length > 1) {
                     itemName = itemBody[0];
                     userId = itemBody[1];
@@ -188,7 +203,7 @@ window.GUI = {
                 console.log("new_userEvent: invalid user id.");
                 return;
             }
-            
+
             if (eventType == "conference/leave") {
                 $("#" + itemId).remove();
             }
@@ -201,46 +216,42 @@ window.GUI = {
                 $(userItem).data("userId", userId);
                 $(userItem).data("userName", itemName);
                 $(userItem).data("userIp", userIp);
-				$(userItem).data("userStatus", "Init");
+                $(userItem).data("userStatus", "Init");
 
-                $(userItem).click(function () {				
-					var info;
-					var  cmd;
-					if( $(this).data("userStatus")  == "Init" )
-					{
-						$(this).data("userStatus","Watch");
-						$(this).css("background-color", "red");
-						cmd = "conference/applyvideo";
-						//info = ("userId: " + $(this).data("userId") + ", userName:" + $(this).data("userName") + ", userIp:" + $(this).data("userIp")) ;
-						info = ($(this).data("userId")) ;
-					}
-					else
-					{
-						$(this).data("userStatus","Init");
-						$(this).css("background-color", "#F6F6F6");
-						cmd = "conference/stopvideo";
-						//info = ("userId: " + $(this).data("userId") + ", userName:" + $(this).data("userName") + ", userIp:" + $(this).data("userIp")) ;					
-						info = ($(this).data("userId") ) ;					
-					}					
-					GUI.jssipCtrlInfo(cmd,info);
+                $(userItem).click(function () {
+                    var info;
+                    var cmd;
+                    if ($(this).data("userStatus") == "Init") {
+                        $(this).data("userStatus", "Watch");
+                        $(this).css("background-color", "red");
+                        cmd = "conference/applyvideo";
+                        //info = ("userId: " + $(this).data("userId") + ", userName:" + $(this).data("userName") + ", userIp:" + $(this).data("userIp")) ;
+                        info = ($(this).data("userId"));
+                    }
+                    else {
+                        $(this).data("userStatus", "Init");
+                        $(this).css("background-color", "#F6F6F6");
+                        cmd = "conference/stopvideo";
+                        //info = ("userId: " + $(this).data("userId") + ", userName:" + $(this).data("userName") + ", userIp:" + $(this).data("userIp")) ;					
+                        info = ($(this).data("userId"));
+                    }
+                    GUI.jssipCtrlInfo(cmd, info);
                     //alert("userId: " + $(this).data("userId") + ", userName:" + $(this).data("userName") + ", userIp:" + $(this).data("userIp"));
                 });
-				
-				
+
+
                 $(userItem).mouseenter(function () {
-					if( $(this).data("userStatus")  == "Init" )
-					{
-						$(this).css("background-color", "yellow");
-					}
-                    
+                    if ($(this).data("userStatus") == "Init") {
+                        $(this).css("background-color", "yellow");
+                    }
+
                 });
-				
-				
+
+
                 $(userItem).mouseout(function () {
-					if( $(this).data("userStatus")  == "Init" )
-					{
-						$(this).css("background-color", "#F6F6F6");
-					}
+                    if ($(this).data("userStatus") == "Init") {
+                        $(this).css("background-color", "#F6F6F6");
+                    }
                 });
                 $("#div_userListCtn").append(userItem); //message.headers["Content-Type"][0]["raw"]
             }
@@ -401,7 +412,7 @@ window.GUI = {
         var status_text = $(session).find(".call-status");
         var button_dial = $(session).find(".button.dial");
         var button_hangup = $(session).find(".button.hangup");
-        //var button_hold = $(session).find(".button.hold");
+        var button_hold = $(session).find(".button.hold");
         var button_resume = $(session).find(".button.resume");
 
         // If the call is not inactive or terminated, then hide the
@@ -442,18 +453,11 @@ window.GUI = {
                 //soundPlayer.play();
 
                 // unhide HTML Video Elements
-                $('#remoteView').attr('hidden', false);				
+                //$('#remoteView').attr('hidden', false);
                 $('#selfView').attr('hidden', false);
-				$('#remoteView2').attr('hidden', false);
-				$('#remoteView3').attr('hidden', false);
-				$('#remoteView4').attr('hidden', false);
-				
                 // Set background image
-                $('#remoteView').attr('poster', "images/wait.gif");
-				$('#remoteView2').attr('poster', "images/wait.gif");
-				$('#remoteView3').attr('poster', "images/wait.gif");
-				$('#remoteView4').attr('poster', "images/wait.gif");
-
+                $('#selfView').attr('poster', "images/wait.gif");
+                $("#webcam").show();
                 break;
 
             case "in-progress":
@@ -466,6 +470,9 @@ window.GUI = {
                 call.removeClass();
                 call.addClass("call answered");
                 status_text.text(description || "answered");
+                $("#div_userListDlg").show();
+                $("#webcam").show();
+                //$("#remoteView").hide();
                 break;
 
             case "terminated":
@@ -483,28 +490,15 @@ window.GUI = {
 
                 button_dial.click(function () {
                     var selfView = document.getElementById('selfView');
-                    var remoteView = document.getElementById('remoteView');
-					var remoteView2,remoteView3,remoteView4;
-					
-					remoteView2 = document.getElementById('remoteView2');
-					remoteView3 = document.getElementById('remoteView3');					
-					remoteView4 = document.getElementById('remoteView4');
-                    session.call.answer(selfView, remoteView,remoteView2,remoteView3,remoteView4);
+                    session.call.answer(selfView);
                 });
 
                 // unhide HTML Video Elements
-                $('#remoteView').attr('hidden', false);
+                //$('#remoteView').attr('hidden', false);
                 $('#selfView').attr('hidden', false);
-				
-				$('#remoteView2').attr('hidden', false);
-				$('#remoteView3').attr('hidden', false);
-				$('#remoteView4').attr('hidden', false);
 
                 // Set background image
-                $('#remoteView').attr('poster', "images/wait.gif");
-				$('#remoteView2').attr('poster', "images/wait.gif");
-				$('#remoteView3').attr('poster', "images/wait.gif");
-				$('#remoteView4').attr('poster', "images/wait.gif");
+                //$('#remoteView').attr('poster', "images/wait.gif");
                 break;
 
             default:
@@ -537,13 +531,9 @@ window.GUI = {
         }
 
         // hide HTML Video Elements
-        $('#remoteView').attr('hidden', true);
         $('#selfView').attr('hidden', true);
-		$('#remoteView2').attr('hidden', true);
-		$('#remoteView3').attr('hidden', true);
-		$('#remoteView4').attr('hidden', true);
+        $("#divWebCamContainer.webcam").remove();
     },
-
 
     setDelayedCallSessionStatus: function (uri, status, description, force) {
         var session = GUI.getSession(uri);
@@ -563,8 +553,8 @@ window.GUI = {
         $(chatting).removeClass("inactive");
 
         if (who != "error") {
-            var who_text = (who == "me" ? "me" : $(session).find(".peer > .display-name").text());
-            var message_div = $('<p class="' + who + '"><b>' + who_text + '</b>: ' + text + '</p>');
+            var who_text = (who == "me" ? "me" : who); //$(session).find(".peer > .display-name").text()
+            var message_div = $('<p class="' + (who == "me" ? "me" : "peer") + '"><b>' + who_text + '</b>: ' + text + '</p>');
         }
         // ERROR sending the MESSAGE.
         else {
@@ -604,15 +594,11 @@ window.GUI = {
 
 
     jssipCall: function (target) {
-        var views, selfView, remoteView, useAudio, useVideo;
-		var remoteView2,remoteView3,remoteView4;
+        var views, selfView, useAudio, useVideo;
 
         selfView = document.getElementById('selfView');
-        remoteView = document.getElementById('remoteView');
-		remoteView2 = document.getElementById('remoteView2');
-		remoteView3 = document.getElementById('remoteView3');
-		remoteView4 = document.getElementById('remoteView4');
-        views = { selfView: selfView, remoteView: remoteView,remoteView2: remoteView2,remoteView3: remoteView3,remoteView4: remoteView4 };
+
+        views = { selfView: selfView };
         useAudio = true;
         useVideo = $('#video').is(':checked');
 
@@ -650,29 +636,64 @@ window.GUI = {
         return r;
     },
 
-    jssipCtrlInfo: function (cmd,info) {
-        var r = 0;
-		var views, selfView, remoteView, useAudio, useVideo;
+    startconfvideo: function (user_id, r_sdp) {
+        MyPhone.startvideo(user_id, r_sdp);
+    },
 
-        selfView = document.getElementById('selfView2');
-        remoteView = document.getElementById('remoteView2');
-        views = { selfView: selfView, remoteView: remoteView };
-        
+    jssipCtrlInfo: function (cmd, info) {
+        console.log("jssipCtrlInfo.info=" + info);
+
+        if(  cmd == "conference/stopvideo" ){
+
+         MyPhone.sendDTMF(cmd, info);
+         MyPhone.stovideo(this, info);
+         return ;
+		}
+
+        var r = 0;
+        var views, selfView, remoteView, useAudio, useVideo;
+
+        if ($("#remoteView" + info).length != 0) {
+            remoteView = $("#remoteView" + info)[0];
+        } else {
+            var webcamCtrlInfoHtml = "<div id=\"webcam" + info + "\" class=\"webcam\">";
+            webcamCtrlInfoHtml += "    <div id=\"videoCaption_" + info + "\" class=\"videoCaption\">";
+            webcamCtrlInfoHtml += "        <div id=\"captionText_" + info + "\" class=\"captionText\">Video_" + info + "</div>";
+            webcamCtrlInfoHtml += "        <img id=\"controlButton_" + info + "\" class=\"controlButton\" src=\"images/icon-resume.png\" />";
+            webcamCtrlInfoHtml += "        <img id=\"closeButton_" + info + "\" class=\"closeButton\" src=\"images/session-close.png\" />";
+            webcamCtrlInfoHtml += "    </div>";
+            webcamCtrlInfoHtml += "    <video id=\"remoteView" + info + "\" class=\"remoteView\" autoplay=\"autoplay\" hidden=\"true\"></video>";
+            webcamCtrlInfoHtml += "</div>";
+
+            var webcamCtrlInfo = $(webcamCtrlInfoHtml);
+            $("#divWebCamContainer").append(webcamCtrlInfo);
+            remoteView = $("#remoteView" + info)[0];
+
+            $("#controlButton_" + info).click({ 'info': info }, function (event) {
+                alert(event.data.info);
+            });
+
+            $("#closeButton_" + info).click({ 'info': info }, function (event) {
+                alert(event.data.info);
+            });
+        }
+
+        views = { selfView: null, remoteView: remoteView };
+
+        function onSendApplyVideo(sdp) {
+            info = info + "\n" + sdp;
+            r = MyPhone.sendDTMF(cmd, info);
+        }
+
         try {
-			
-			function onSendApplyVideo(sdp) {	
-				info = info + "\n" + sdp;
-				r = MyPhone.sendDTMF(cmd,info);			
-			}            
-			MyPhone.applyvideo(this,views,onSendApplyVideo);
+            $(remoteView).attr('hidden', false);
+            $(remoteView).attr('poster', "images/wait.gif");
+            MyPhone.applyvideo(this, info, views, onSendApplyVideo);
         } catch (e) {
             console.log(e, MyPhone);
         }
         return r;
     },
-
-
-
 
     jssipIsComposing: function (uri, active) {
         //JsSIP.API.is_composing(uri, active);

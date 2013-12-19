@@ -766,6 +766,17 @@ JsSIP.Transport.prototype = {
           case JsSIP.c.INFO:
             //alert(message.body);
 			transaction = this.ua.transactions.nict[message.via_branch];
+
+			try{			
+				var user_id  = message.headers["Requestack"][0]["raw"];
+				var r_sdp = message.body;
+				this.ua.emit('ConfEvent', this.ua,message);
+
+			}
+			catch(ee){
+
+			}			
+			
             if(transaction) {
               transaction.receiveResponse(message);
             }
@@ -2840,7 +2851,8 @@ JsSIP.Session = function(ua) {
   this.dialog = null;
   this.earlyDialogs = [];
   this.mediaSession = null;
-  this.mediaSessionExt = null;
+  
+  this.mediaSessionExt = [];
 
   // Session Timers
   // A BYE will be sent if ACK for the response establishing the session is not received
@@ -2893,7 +2905,6 @@ JsSIP.Session.prototype.init_incoming = function(request) {
 
 JsSIP.Session.prototype.connect = function(target, options) {
   var event, eventHandlers, request, selfView, remoteView, mediaType, extraHeaders, requestParams;
-  var remoteView2,remoteView3,remoteView4;
 
   // Check UA Status
   JsSIP.utils.checkUAStatus(this.ua);
@@ -2913,9 +2924,6 @@ JsSIP.Session.prototype.connect = function(target, options) {
   options = options || {};
   selfView = options.views ? options.views.selfView : null;
   remoteView = options.views ? options.views.remoteView : null;
-  remoteView2 = options.views ? options.views.remoteView2 : null;
-  remoteView3 = options.views ? options.views.remoteView3 : null;
-  remoteView4 = options.views ? options.views.remoteView4 : null;
   mediaType = options.mediaType || {audio: true, video: true};
   extraHeaders = options.extraHeaders || [];
   eventHandlers = options.eventHandlers || {};
@@ -2934,7 +2942,7 @@ JsSIP.Session.prototype.connect = function(target, options) {
   // Session parameter initialization
   this.from_tag = JsSIP.utils.newTag();
   this.status = JsSIP.c.SESSION_NULL;
-  this.mediaSession = new JsSIP.MediaSession(this, selfView, remoteView,remoteView2,remoteView3,remoteView4);
+  this.mediaSession = new JsSIP.MediaSession(this, selfView, remoteView);
 
   // Set anonymous property
   this.anonymous = options.anonymous;
@@ -3201,7 +3209,7 @@ JsSIP.Session.prototype.receiveInitialRequest = function(ua, request) {
     * @param {HTMLVideoElement} selfView
     * @param {HTMLVideoElement} remoteView
     */
-    this.answer = function(selfView, remoteView,remoteView2,remoteView3,remoteView4) {
+    this.answer = function(selfView, remoteView) {
       var offer, onSuccess, onMediaFailure, onSdpFailure;
 
       // Check UA Status
@@ -3263,7 +3271,7 @@ JsSIP.Session.prototype.receiveInitialRequest = function(ua, request) {
       };
 
       //Initialize Media Session
-      session.mediaSession = new JsSIP.MediaSession(session, selfView, remoteView,remoteView2,remoteView3,remoteView4);
+      session.mediaSession = new JsSIP.MediaSession(session, selfView, remoteView);
       session.mediaSession.startCallee(onSuccess, onMediaFailure, onSdpFailure, offer);
     };
 
@@ -3281,8 +3289,36 @@ JsSIP.Session.prototype.receiveInitialRequest = function(ua, request) {
   }
 };
 
+JsSIP.Session.prototype.getMediaSessionByUserID = function(userid) {
+	try
+	{
+		return this.mediaSessionExt[userid];
+	}
+	catch(ee)
+	{
+		return null;
+	}
+ }
 
-JsSIP.Session.prototype.applyVideoChannel = function(target,options,onSuccess) {
+
+JsSIP.Session.prototype.StartVideoChannel = function( user_id,r_sdp) {
+
+	function onSuccess() {
+
+		console.log(  user_id + "  set remote sdp sucessfully");
+	}
+
+	function onFailure() {
+		console.log( user_id + "  set remote sdp failed");
+	}
+	
+	this.mediaSessionExt[user_id].peerConnection.setRemoteDescription(
+        new window.RTCSessionDescription({type:'answer', sdp:r_sdp}), onSuccess, onFailure)
+
+ }
+
+          	
+JsSIP.Session.prototype.applyVideoChannel = function(target,userid,options,onSuccess) {
 
 	var event, eventHandlers, request, selfView, remoteView, mediaType, extraHeaders, requestParams;
 	options = options || {};
@@ -3294,16 +3330,25 @@ JsSIP.Session.prototype.applyVideoChannel = function(target,options,onSuccess) {
 	
 	function onMediaSuccess() {
      // Set the body to the request and send it.
-	 onSuccess(self.mediaSessionExt.peerConnection.localDescription.sdp);
+	 onSuccess(self.mediaSessionExt[userid].peerConnection.localDescription.sdp);
     
   }
 
 	function onMediaFailure(e) {
 	
 	}
-	this.mediaSessionExt = new JsSIP.MediaSession(this, selfView, remoteView);
-	this.mediaSessionExt.startCaller(mediaType, onMediaSuccess, onMediaFailure);
+	this.mediaSessionExt[userid] = new JsSIP.MediaSession(this, selfView, remoteView);
+	this.mediaSessionExt[userid].startCaller(mediaType, onMediaSuccess, onMediaFailure);
 }
+
+
+JsSIP.Session.prototype.StopVideoChannel = function(target,userid) {
+
+	
+	this.mediaSessionExt[userid].close();
+	this.mediaSessionExt[userid] = null;
+}
+
 
 /*
  * Reception of Response for Initial Request
@@ -3887,13 +3932,10 @@ JsSIP.Session.RequestSender.prototype = {
  * @param {HTMLVideoElement} selfView
  * @param {HTMLVideoElement} remoteView
  */
-JsSIP.MediaSession = function(session, selfView, remoteView,remoteView2,remoteView3,remoteView4) {
+JsSIP.MediaSession = function(session, selfView, remoteView) {
   this.session = session;
   this.selfView = selfView || null;
   this.remoteView = remoteView || null;
-  this.remoteView2 = remoteView2 || null;
-  this.remoteView3 = remoteView3 || null;
-  this.remoteView4 = remoteView4 || null;
   this.localMedia = null;
   this.peerConnection = null;
 };
@@ -4058,11 +4100,7 @@ JsSIP.MediaSession.prototype = {
         session.remoteView.src = webkitURL.createObjectURL(mediaStreamEvent.stream);
 		
 		// muti display for local
-		session.remoteView2.src = webkitURL.createObjectURL(mediaStreamEvent.stream);
-		session.remoteView3.src = webkitURL.createObjectURL(mediaStreamEvent.stream);
-		session.remoteView4.src = webkitURL.createObjectURL(mediaStreamEvent.stream);
-		
-		session.selfView.src = webkitURL.createObjectURL(mediaStreamEvent.stream);
+		//session.selfView.src = webkitURL.createObjectURL(mediaStreamEvent.stream);
 	  //console.log(session);
 
 
@@ -4382,7 +4420,8 @@ JsSIP.UA = function(configuration) {
     'registrationFailed',
     'newSession',
     'newMessage',
-    'userEvent'
+    'userEvent',
+    'ConfEvent'
   ];
 
   this.cache = {
@@ -4397,6 +4436,7 @@ JsSIP.UA = function(configuration) {
   this.applicants = {};
 
   this.sessions = {};
+  this.sessions_conf = {};
   this.transport = null;
   this.contact = {};
   this.status = JsSIP.c.UA_STATUS_INIT;
@@ -4511,7 +4551,12 @@ JsSIP.UA.prototype.call = function(target, useAudio, useVideo, eventHandlers, vi
 };
 
 
-JsSIP.UA.prototype.applyvideo = function(target,options,onSendRequest){
+JsSIP.UA.prototype.startvideo = function(user_id,r_sdp){
+
+	this.sessions_conf[user_id].StartVideoChannel(user_id,r_sdp);
+ }
+
+JsSIP.UA.prototype.applyvideo = function(target,user_id,options,onSendRequest){
 
 	var event, eventHandlers, request, selfView, remoteView, mediaType, extraHeaders, requestParams;
 	
@@ -4528,8 +4573,14 @@ JsSIP.UA.prototype.applyvideo = function(target,options,onSendRequest){
       function onMediaFailure(e) {
 		}
 		
-	var session = new JsSIP.Session(this);
-    session.applyVideoChannel(target, options,onSuccess);
+	this.sessions_conf[user_id] = new JsSIP.Session(this);
+    this.sessions_conf[user_id].applyVideoChannel(target, user_id,options,onSuccess);
+}
+
+JsSIP.UA.prototype.stovideo = function(target,user_id ){
+
+	this.sessions_conf[user_id].StopVideoChannel(target, user_id);
+	this.sessions_conf[user_id] = null;    
 }
 
 /**
@@ -5043,7 +5094,7 @@ JsSIP.UA.prototype.loadConfig = function(configuration) {
       // Session parameters
       no_answer_timeout: 60,
       //stun_server: 'stun:stun.l.google.com:19302',
-	  stun_server: 'stun:192.168.1.106:3478',
+	  //stun_server: 'stun:192.168.1.103:3478',
 	  //stun_server: 'stun.stunprotocol.org:3478',
 
       // Logging parameters
