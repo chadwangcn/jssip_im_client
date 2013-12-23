@@ -4024,7 +4024,38 @@ JsSIP.MediaSession.prototype = {
       onMediaFailure(e);
     }
 
-    self.getUserMedia({'audio':true, 'video':true}, onGetUserMediaSuccess, onGetUserMediaFailure);
+    var qvgaConstraints  = {
+	  'audio': true,
+	  "video": {
+		"mandatory": {
+		"maxWidth": "320",
+		"maxHeight": "180"
+		}
+	  }
+	};
+	
+	var vgaConstraints  = {
+	  'audio': true,
+	  "video": {
+		"mandatory": {
+		"maxWidth": "640",
+		"maxHeight": "360"
+		}
+	  }
+	};	
+	
+	var hdConstraints  = {
+	  "audio": true,
+	  "video": {
+		"mandatory": {
+		"maxWidth": "1280",
+		"maxHeight": "720"
+		}
+	  }
+	};
+
+    //self.getUserMedia({'audio':true, 'video':true}, onGetUserMediaSuccess, onGetUserMediaFailure);
+	self.getUserMedia( qvgaConstraints, onGetUserMediaSuccess, onGetUserMediaFailure);
    },
 
   /**
